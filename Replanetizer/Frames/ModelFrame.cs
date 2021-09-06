@@ -100,12 +100,9 @@ namespace Replanetizer.Frames
                 else if (_textureSet != null)
                     textureSet = _textureSet;
                 else
-                    // This should never happen if Prepare is written correctly
-                    throw new Exception(
-                        $"Either {nameof(_textureSet)} or " +
-                        $"{nameof(_armorTextureSet)} should be " +
-                        "non-null"
-                    );
+                    // I don't think this can happen if Update is written correctly,
+                    // but we might as well try to handle it gracefully
+                    return (null, null);
 
                 return (model, textureSet);
             }
