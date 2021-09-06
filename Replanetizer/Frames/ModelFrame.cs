@@ -149,7 +149,7 @@ namespace Replanetizer.Frames
         private Vector2 mousePos;
         private int width, height;
         private int targetTexture;
-        private PropertyFrame propertyFrame;
+        private readonly PropertyFrame propertyFrame;
 
         public ModelFrame(Window wnd, LevelFrame levelFrame, Model? model = null) : base(wnd, levelFrame)
         {
