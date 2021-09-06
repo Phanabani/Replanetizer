@@ -335,9 +335,9 @@ namespace Replanetizer.Frames
 
             if (selectedModel == null || selectedTextureSet == null) return;
 
-            for (int i = 0; i < selectedModel.textureConfig.Count; i++)
+            foreach (var config in selectedModel.textureConfig)
             {
-                int textureId = selectedModel.textureConfig[i].ID;
+                int textureId = config.ID;
                 if (textureId < 0 || textureId >= selectedTextureSet.Count) continue;
 
                 selectedModelTextures.Add(selectedTextureSet[textureId]);
