@@ -147,7 +147,7 @@ namespace Replanetizer.Frames
         private BufferContainer? container;
         private Rectangle contentRegion;
         private Vector2 mousePos;
-        private int Width, Height;
+        private int width, height;
         private int targetTexture;
         private PropertyFrame propertyFrame;
 
@@ -182,7 +182,7 @@ namespace Replanetizer.Frames
         private void RenderTree()
         {
             var colW = ImGui.GetColumnWidth() - 10;
-            var childSize = new System.Numerics.Vector2(colW, Height);
+            var childSize = new System.Numerics.Vector2(colW, height);
             if (ImGui.BeginChild("TreeView",  childSize, false, ImGuiWindowFlags.AlwaysVerticalScrollbar))
             {
                 RenderSubTree("Moby", level.mobyModels, level.textures);
@@ -218,7 +218,7 @@ namespace Replanetizer.Frames
 
             ImGui.Columns(3);
             ImGui.SetColumnWidth(0, 200);
-            ImGui.SetColumnWidth(1, (float) Width);
+            ImGui.SetColumnWidth(1, width);
             RenderTree();
             ImGui.NextColumn();
 
@@ -226,24 +226,24 @@ namespace Replanetizer.Frames
 
             if (invalidate)
             {
-                FramebufferRenderer.ToTexture(Width, Height, ref targetTexture, () => {
+                FramebufferRenderer.ToTexture(width, height, ref targetTexture, () => {
                     //Setup openGL variables
                     GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
                     GL.Enable(EnableCap.DepthTest);
                     GL.LineWidth(5.0f);
-                    GL.Viewport(0, 0, Width, Height);
+                    GL.Viewport(0, 0, width, height);
 
                     OnPaint();
                 });
 
                 invalidate = false;
             }
-            ImGui.Image((IntPtr) targetTexture, new System.Numerics.Vector2(Width, Height),
+            ImGui.Image((IntPtr) targetTexture, new System.Numerics.Vector2(width, height),
                 System.Numerics.Vector2.UnitY, System.Numerics.Vector2.UnitX);
 
             ImGui.NextColumn();
             var colW = ImGui.GetColumnWidth() - 10;
-            var colSize = new System.Numerics.Vector2(colW, Height);
+            var colSize = new System.Numerics.Vector2(colW, height);
 
             if (ImGui.BeginChild("TextureAndPropertyView", colSize, false, ImGuiWindowFlags.AlwaysVerticalScrollbar))
             {
@@ -269,7 +269,7 @@ namespace Replanetizer.Frames
 
         private void UpdateWindowSize()
         {
-            int prevWidth = Width, prevHeight = Height;
+            int prevWidth = width, prevHeight = height;
 
             System.Numerics.Vector2 vMin = ImGui.GetWindowContentRegionMin();
             System.Numerics.Vector2 vMax = ImGui.GetWindowContentRegionMax();
@@ -277,17 +277,17 @@ namespace Replanetizer.Frames
             vMin.X += 220;
             vMax.X -= 300;
 
-            Width = (int) (vMax.X - vMin.X);
-            Height = (int) (vMax.Y - vMin.Y);
+            width = (int) (vMax.X - vMin.X);
+            height = (int) (vMax.Y - vMin.Y);
 
-            if (Width <= 0 || Height <= 0)
+            if (width <= 0 || height <= 0)
             {
-                Width = 0;
-                Height = 0;
+                width = 0;
+                height = 0;
                 return;
             }
 
-            if (Width != prevWidth || Height != prevHeight)
+            if (width != prevWidth || height != prevHeight)
             {
                 invalidate = true;
                 OnResize();
@@ -296,7 +296,7 @@ namespace Replanetizer.Frames
             System.Numerics.Vector2 windowPos = ImGui.GetWindowPos();
             Vector2 windowZero = new Vector2(windowPos.X + vMin.X, windowPos.Y + vMin.Y);
             mousePos = wnd.MousePosition - windowZero;
-            contentRegion = new Rectangle((int)windowZero.X, (int)windowZero.Y, Width, Height);
+            contentRegion = new Rectangle((int)windowZero.X, (int)windowZero.Y, width, height);
         }
 
         private void ModelViewer_Load()
@@ -312,8 +312,8 @@ namespace Replanetizer.Frames
             worldView = CreateWorldView();
             trans = Matrix4.CreateTranslation(0.0f, 0.0f, -5.0f);
 
-            GL.GenVertexArrays(1, out int VAO);
-            GL.BindVertexArray(VAO);
+            GL.GenVertexArrays(1, out int vao);
+            GL.BindVertexArray(vao);
         }
 
         private void UpdateModel()
@@ -375,7 +375,7 @@ namespace Replanetizer.Frames
             // To scale the zoom value to make a vector of that magnitude
             // magnitude == sqrt(3*zoom^2)
             const float invSqrt3 = 0.57735f;
-            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(FIELD_OF_VIEW, (float)Width / Height, CLIP_NEAR, CLIP_FAR);
+            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(FIELD_OF_VIEW, (float)width / height, CLIP_NEAR, CLIP_FAR);
             Matrix4 view = Matrix4.LookAt(new Vector3(invSqrt3 * ZOOM_SCALE * zoom), Vector3.Zero, Vector3.UnitZ);
             return view * projection;
         }
