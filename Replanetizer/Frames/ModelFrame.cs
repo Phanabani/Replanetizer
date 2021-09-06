@@ -33,7 +33,7 @@ namespace Replanetizer.Frames
         /// <summary>
         /// Textures used by this model
         /// </summary>
-        private List<Texture> selectedModelTextures;
+        private readonly List<Texture> selectedModelTextures = new();
 
         private class ModelCyclerHelper
         {
@@ -108,7 +108,7 @@ namespace Replanetizer.Frames
             }
         }
 
-        private ModelCyclerHelper modelCyclerHelper = new();
+        private readonly ModelCyclerHelper modelCyclerHelper = new();
 
         private readonly ImGuiKeyHeldHandler keyHeldHandler = new()
         {
@@ -153,7 +153,6 @@ namespace Replanetizer.Frames
 
         public ModelFrame(Window wnd, LevelFrame levelFrame, Model? model = null) : base(wnd, levelFrame)
         {
-            selectedModelTextures = new List<Texture>();
             propertyFrame = new PropertyFrame(wnd, listenToCallbacks: true, hideCallbackButton: true);
             SelectModel(model);
         }
