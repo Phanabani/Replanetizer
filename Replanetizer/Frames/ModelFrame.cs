@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -20,13 +21,97 @@ namespace Replanetizer.Frames
         protected override string frameName { get; set; } = "Models";
 
         private Level level => levelFrame.level;
+
         private Model selectedModel;
-        private int selectedModelIndex;
-        private List<Model> selectedModelList;
-        private List<Texture> selectedModelTexturesSet;
-        private List<List<Texture>> selectedModelArmorTexturesSet;
+
+        /// <summary>
+        /// The list of textures which we can index to find textures used by
+        /// this model
+        /// </summary>
         private List<Texture> selectedTextureSet;
-        private List<Texture> modelTextureList;
+
+        /// <summary>
+        /// Textures used by this model
+        /// </summary>
+        private List<Texture> selectedModelTextures;
+
+        private class ModelCyclerHelper
+        {
+            private int _index;
+            private List<Model>? _modelList;
+            private List<Texture>? _textureSet;
+            private List<List<Texture>>? _armorTextureSet;
+
+            /// <summary>
+            /// Call when the selected model changes to prepare the cycler
+            /// with the correct model and texture lists.
+            /// </summary>
+            /// <param name="level">the currently loaded level</param>
+            /// <param name="newModel">the new model</param>
+            public void Update(Level level, Model newModel)
+            {
+                List<Model>[] modelLists = {
+                    level.mobyModels, level.tieModels, level.shrubModels,
+                    level.gadgetModels, level.armorModels
+                };
+                foreach (var models in modelLists)
+                {
+                    var idx = models.FindIndex(m => ReferenceEquals(m, newModel));
+                    if (idx == -1) continue;
+
+                    _index = idx;
+                    _modelList = models;
+
+                    // This is a little weird because armorTextures is a list
+                    // of a list of textures -- one list per armor set.
+                    _textureSet = null;
+                    _armorTextureSet = null;
+                    if (ReferenceEquals(models, level.gadgetModels))
+                        _textureSet = level.gadgetTextures;
+                    else if (ReferenceEquals(models, level.armorModels))
+                        _armorTextureSet = level.armorTextures;
+                    else
+                        _textureSet = level.textures;
+
+                    return;
+                }
+            }
+
+            /// <summary>
+            /// Cycle through the currently selected list of models (useful for
+            /// using arrow keys to navigate)
+            /// </summary>
+            /// <param name="offset">offset from the current model to select</param>
+            public (Model?, List<Texture>?) Cycle(int offset)
+            {
+                if (_modelList == null) return (null, null);
+                var idx = _index + offset;
+                var count = _modelList.Count;
+                // Wrap the new index around the count (modulus can give negatives)
+                idx = (idx % count + count) % count;
+                _index = (idx % count + count) % count;
+                var model = _modelList[idx];
+
+                List<Texture> textureSet;
+                if (_armorTextureSet != null)
+                    // This model is armor, so get its texture set from the list
+                    // of armor texture sets
+                    textureSet = _armorTextureSet[idx];
+                else if (_textureSet != null)
+                    textureSet = _textureSet;
+                else
+                    // This should never happen if Prepare is written correctly
+                    throw new Exception(
+                        $"Either {nameof(_textureSet)} or " +
+                        $"{nameof(_armorTextureSet)} should be " +
+                        "non-null"
+                    );
+
+                return (model, textureSet);
+            }
+        }
+
+        private ModelCyclerHelper modelCyclerHelper = new();
 
         private readonly ImGuiKeyHeldHandler keyHeldHandler = new()
         {
@@ -71,18 +156,17 @@ namespace Replanetizer.Frames
 
         public ModelFrame(Window wnd, LevelFrame levelFrame, Model model = null) : base(wnd, levelFrame)
         {
-            modelTextureList = new List<Texture>();
+            selectedModelTextures = new List<Texture>();
             propertyFrame = new PropertyFrame(wnd, listenToCallbacks: true, hideCallbackButton: true);
             SelectModel(model);
         }
 
         private void RenderModelEntry(Model mod, List<Texture> textureSet, string name)
         {
-            if (ImGui.Selectable(name, selectedModel == mod))
-            {
-                SelectModel(mod, textureSet);
-                PrepareForArrowInput();
-            }
+            if (!ImGui.Selectable(name, selectedModel == mod)) return;
+
+            SelectModel(mod, textureSet);
+            modelCyclerHelper.Update(level, selectedModel);
         }
 
         private void RenderSubTree(string name, List<Model> models, List<Texture> textureSet)
@@ -169,9 +253,9 @@ namespace Replanetizer.Frames
             {
                 if (selectedModel != null)
                 {
-                    if (modelTextureList.Count > 0)
+                    if (selectedModelTextures.Count > 0)
                     {
-                        TextureFrame.RenderTextureList(modelTextureList, 64, levelFrame.textureIds);
+                        TextureFrame.RenderTextureList(selectedModelTextures, 64, levelFrame.textureIds);
                         ImGui.Separator();
                     }
                     if (ImGui.Button("Export model"))
@@ -249,47 +333,14 @@ namespace Replanetizer.Frames
 
         private void UpdateTextures()
         {
-            modelTextureList.Clear();
+            selectedModelTextures.Clear();
 
             for (int i = 0; i < selectedModel.textureConfig.Count; i++)
             {
                 int textureId = selectedModel.textureConfig[i].ID;
                 if (textureId < 0 || textureId >= selectedTextureSet.Count) continue;
 
-                modelTextureList.Add(selectedTextureSet[textureId]);
-            }
-        }
-
-        /// <summary>
-        /// Use selectedModel to prepare selectedModelIndex and
-        /// selectedModelList for using arrows to navigate through models.
-        /// </summary>
-        private void PrepareForArrowInput()
-        {
-            List<Model>[] modelLists = {
-                level.mobyModels, level.tieModels, level.shrubModels,
-                level.gadgetModels, level.armorModels
-            };
-            foreach (var models in modelLists)
-            {
-                var idx = models.FindIndex(m => ReferenceEquals(m, selectedModel));
-                if (idx == -1) continue;
-
-                selectedModelIndex = idx;
-                selectedModelList = models;
-
-                // This is a little weird because armorTextures is a list
-                // of a list of textures -- one list per armor set.
-                selectedModelTexturesSet = null;
-                selectedModelArmorTexturesSet = null;
-                if (ReferenceEquals(models, level.gadgetModels))
-                    selectedModelTexturesSet = level.gadgetTextures;
-                else if (ReferenceEquals(models, level.armorModels))
-                    selectedModelArmorTexturesSet = level.armorTextures;
-                else
-                    selectedModelTexturesSet = level.textures;
-
-                return;
+                selectedModelTextures.Add(selectedTextureSet[textureId]);
             }
         }
 
@@ -314,31 +365,8 @@ namespace Replanetizer.Frames
         /// <param name="offset">offset from the current model to select</param>
         private void CycleModels(int offset)
         {
-            if (selectedModelList == null) return;
-            var idx = selectedModelIndex + offset;
-            var count = selectedModelList.Count;
-            // Wrap the new index around the count (modulus can give negatives)
-            idx = (idx % count + count) % count;
-            selectedModelIndex = (idx % count + count) % count;
-            var model = selectedModelList[idx];
-
-            List<Texture> textureSet;
-            if (selectedModelArmorTexturesSet != null)
-                // This model is armor, so get its texture set from the list
-                // of armor texture sets
-                textureSet = selectedModelArmorTexturesSet[idx];
-            else if (selectedModelTexturesSet != null)
-                textureSet = selectedModelTexturesSet;
-            else
-            {
-                Logger.Warn(
-                    $"Either {nameof(selectedModelTexturesSet)} or " +
-                    $"{nameof(selectedModelArmorTexturesSet)} should be " +
-                    "non-null. We'll default to level.textures."
-                    );
-                textureSet = level.textures;
-            }
-
+            var (model, textureSet) = modelCyclerHelper.Cycle(offset);
+            if (model == null || textureSet == null) return;
             SelectModel(model, textureSet);
         }
 
