@@ -22,13 +22,13 @@ namespace Replanetizer.Frames
 
         private Level level => levelFrame.level;
 
-        private Model selectedModel;
+        private Model? selectedModel;
 
         /// <summary>
         /// The list of textures which we can index to find textures used by
         /// this model
         /// </summary>
-        private List<Texture> selectedTextureSet;
+        private List<Texture>? selectedTextureSet;
 
         /// <summary>
         /// Textures used by this model
@@ -144,14 +144,14 @@ namespace Replanetizer.Frames
 
         private Matrix4 trans, scale, worldView, rot = Matrix4.Identity;
 
-        private BufferContainer container;
+        private BufferContainer? container;
         private Rectangle contentRegion;
         private Vector2 mousePos;
         private int Width, Height;
         private int targetTexture;
         private PropertyFrame propertyFrame;
 
-        public ModelFrame(Window wnd, LevelFrame levelFrame, Model model = null) : base(wnd, levelFrame)
+        public ModelFrame(Window wnd, LevelFrame levelFrame, Model? model = null) : base(wnd, levelFrame)
         {
             selectedModelTextures = new List<Texture>();
             propertyFrame = new PropertyFrame(wnd, listenToCallbacks: true, hideCallbackButton: true);
@@ -163,7 +163,7 @@ namespace Replanetizer.Frames
             if (!ImGui.Selectable(name, selectedModel == mod)) return;
 
             SelectModel(mod, textureSet);
-            modelCyclerHelper.Update(level, selectedModel);
+            modelCyclerHelper.Update(level, selectedModel!);
         }
 
         private void RenderSubTree(string name, List<Model> models, List<Texture> textureSet)
@@ -319,6 +319,8 @@ namespace Replanetizer.Frames
 
         public void UpdateModel()
         {
+            if (selectedModel == null) return;
+
             scale = Matrix4.CreateScale(selectedModel.size);
             invalidate = true;
             propertyFrame.SelectionCallback(selectedModel);
@@ -332,6 +334,8 @@ namespace Replanetizer.Frames
         {
             selectedModelTextures.Clear();
 
+            if (selectedModel == null || selectedTextureSet == null) return;
+
             for (int i = 0; i < selectedModel.textureConfig.Count; i++)
             {
                 int textureId = selectedModel.textureConfig[i].ID;
@@ -341,12 +345,12 @@ namespace Replanetizer.Frames
             }
         }
 
-        private void SelectModel(Model model)
+        private void SelectModel(Model? model)
         {
             SelectModel(model, level.textures);
         }
 
-        private void SelectModel(Model model, List<Texture> textures)
+        private void SelectModel(Model? model, List<Texture> textures)
         {
             if (model == null) return;
 
@@ -382,31 +386,34 @@ namespace Replanetizer.Frames
             GL.ClearColor(Color.SkyBlue);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-            if (selectedModel != null)
+            if (selectedModel == null || selectedTextureSet == null || container == null)
             {
-                // Has to be done in this order to work correctly
-                Matrix4 mvp = trans * scale * rot * worldView;
-
-                GL.UseProgram(shaderID);
-                GL.UniformMatrix4(matrixID, false, ref mvp);
-
-                GL.EnableVertexAttribArray(0);
-                GL.EnableVertexAttribArray(1);
-
-                container.Bind();
-                GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, sizeof(float) * 8, 0);
-                GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, sizeof(float) * 8, sizeof(float) * 6);
-
-                //Bind textures one by one, applying it to the relevant vertices based on the index array
-                foreach (TextureConfig conf in selectedModel.textureConfig)
-                {
-                    GL.BindTexture(TextureTarget.Texture2D, (conf.ID >= 0 && conf.ID < selectedTextureSet.Count) ? levelFrame.textureIds[selectedTextureSet[conf.ID]] : 0);
-                    GL.DrawElements(PrimitiveType.Triangles, conf.size, DrawElementsType.UnsignedShort, conf.start * sizeof(ushort));
-                }
-
-                GL.DisableVertexAttribArray(1);
-                GL.DisableVertexAttribArray(0);
+                invalidate = false;
+                return;
             }
+
+            // Has to be done in this order to work correctly
+            Matrix4 mvp = trans * scale * rot * worldView;
+
+            GL.UseProgram(shaderID);
+            GL.UniformMatrix4(matrixID, false, ref mvp);
+
+            GL.EnableVertexAttribArray(0);
+            GL.EnableVertexAttribArray(1);
+
+            container.Bind();
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, sizeof(float) * 8, 0);
+            GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, sizeof(float) * 8, sizeof(float) * 6);
+
+            //Bind textures one by one, applying it to the relevant vertices based on the index array
+            foreach (TextureConfig conf in selectedModel.textureConfig)
+            {
+                GL.BindTexture(TextureTarget.Texture2D, (conf.ID >= 0 && conf.ID < selectedTextureSet.Count) ? levelFrame.textureIds[selectedTextureSet[conf.ID]] : 0);
+                GL.DrawElements(PrimitiveType.Triangles, conf.size, DrawElementsType.UnsignedShort, conf.start * sizeof(ushort));
+            }
+
+            GL.DisableVertexAttribArray(1);
+            GL.DisableVertexAttribArray(0);
 
             invalidate = false;
         }
@@ -477,12 +484,12 @@ namespace Replanetizer.Frames
         private void ExportSelectedModelTextures()
         {
             var textureConfig = selectedModel?.textureConfig;
-            if (textureConfig == null) return;
+            if (textureConfig == null || selectedTextureSet == null) return;
 
             var folder = CrossFileDialog.OpenFolder();
             if (folder.Length == 0) return;
 
-            foreach (var config in selectedModel.textureConfig)
+            foreach (var config in textureConfig)
             {
                 var textureId = config.ID;
                 if (textureId < 0 || textureId >= selectedTextureSet.Count) continue;
