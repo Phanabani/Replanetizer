@@ -316,7 +316,7 @@ namespace Replanetizer.Frames
             GL.BindVertexArray(VAO);
         }
 
-        public void UpdateModel()
+        private void UpdateModel()
         {
             if (selectedModel == null) return;
 
